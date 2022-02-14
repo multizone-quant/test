@@ -1,0 +1,543 @@
+<!DOCTYPE <!DOCTYPE html>
+<html>
+    <body>
+        <div id="root"></div>
+    </body>
+
+    <!-- 
+        https://multizone-quant.github.io/react-ex/smon-info.html
+
+    <script src="https://unpkg.com/react@17/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@17/umd/react-dom.development.js"></script>
+    -->
+    <script crossorigin src="https://unpkg.com/react@17/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@17/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script type="text/babel">
+        const root = document.getElementById("root");
+
+        function GetPriceFromUpbit({data, coin}) {
+            console.log('upbit', data)
+            for (var i=0; i < data.length; i++) {
+                if (data[i].market == coin) {
+                    return data[i].trade_price.toLocaleString() + '(' + (data[i].signed_change_rate*100).toFixed(2) + '%)'
+                }
+            }
+            const ret = 'no coin name ' + coin
+            return (
+                ret
+            );
+        }
+        function GetRentTotal({data, type}) {
+            var total = 0
+            for (var i=0; i < data.length; i++) {
+                total += parseFloat(data[i].buy_price)
+            }
+
+            var msg = '   Revenue : '
+            if (type == 'renter')
+                msg = '   Payment : '
+
+            const ret = '#Card : ' + String(data.length) + msg + total.toFixed(2) + ' DEC/day'
+            return (
+                ret
+            );
+        }
+
+        function GetRemain({data}) {
+            const today = new Date();
+            const start  = new Date(data.rental_date)
+            const end  = new Date(data.next_rental_payment)
+            var diff = (end - today)/1000  // diff by sec
+
+            const hour = diff/3600
+            const min = diff/60
+
+            var d = ''
+            var h = ''
+            if (hour > 1) 
+                h = hour.toFixed(1) + 'h '
+            else if ( min > 0 ) 
+                h = min.toFixed(1) + 'm'
+            else 
+                h = ''
+
+            // next_rental_payment is not end of rent time but the next payment time 
+            // need to calculate based on  rental_days and next_rental_payment
+            var ret = ''
+
+            if ( data.cancel_player || data.rental_days < 2 )
+                ret = h 
+            else {
+                const st  = start.getTime() / 1000  // convert to sec
+                const td  = today.getTime() / 1000
+                const diff_day = (td - st)/(24*3600)
+                const remain_day = data.rental_days - diff_day
+
+                if (remain_day > 1.0)
+                    ret = remain_day.toFixed(1) + 'd '
+                else 
+                    ret = h
+            }
+            return (
+                ret
+            );
+        }
+
+        function GetCardName({data, id}) {
+            console.log(data, id)
+            var name
+            if (data.length == 0)
+                name = String(id)
+            else 
+                name = data[id-1].name
+
+            return (
+                name
+            );
+        }
+        function TestArgs(kind) {
+            console.log('TestArgs', kind)
+        }
+        function TestArgs2({kind}) {
+            console.log('TestArgs2', kind)
+        }
+        function GetDetailRewardInfoTr({data, kind}) {
+            var cnt = GetDetailRewardInfoGen(data, kind)
+            var col = 'black'
+            if (kind == 'pack' && cnt > 0)
+                col = 'red'
+            
+//            var ret = '<td style={{color:"' + color + '"}}> ' + String(cnt) + '</td>'
+//              <td  style={{color: "red"}}> Test </td>                                                        
+            var ret = '<td>' + String(cnt) + '</td>'
+            if (cnt > 0)
+                return (<td style={{color:"red"}}> &nbsp; {cnt} &nbsp; </td>);
+            else 
+                return (<td> &nbsp; {cnt} &nbsp; </td>);
+        }
+
+        function GetDetailRewardInfo({data, kind}) {
+            return GetDetailRewardInfoGen(data, kind)
+        }
+
+        function GetRewardType({data}) {
+            const info = JSON.parse(data.data)
+            if (info.type == 'quest')
+                return 'quest'
+            else if (info.type == 'league_season')
+                return 'season'
+            else 
+                return 'unknown'
+        }
+
+        function GetDetailRewardInfoGen(data, kind) {
+            var sum = 0
+            var suc = 'fail'
+            if (data.success ) {
+                const res = JSON.parse(data.result)
+                const info = JSON.parse(data.data)
+                suc = info.type 
+
+                for (var i=0; i < res.rewards.length; i++) {
+                    const qty = res.rewards[i].quantity
+                    const type = res.rewards[i].type
+                    if (type == kind) 
+                        sum += qty
+                }
+            }
+            var ret = 'fail'
+            if (suc != 'fail') 
+                ret = sum
+                if (ret == 0)
+                    ret = ''
+            return (
+                ret
+            );
+        }
+
+        function App() {
+            const UPBIT_API_URL = 'https://api.upbit.com/v1'
+
+            const [loading, setLoading] = React.useState(-1);
+            const [infos, setInfos] = React.useState([]);
+            const [cardInfos, setCardInfos] = React.useState([]);
+            const [smonInfos, setSmonInfos] = React.useState([]);
+            const [upbitInfos, setUpbitInfos] = React.useState([]);
+            const [rewardInfos, setRewardInfos] = React.useState([]);
+            const [rentInfos, setRentInfos] = React.useState([]);
+            const [activeRentingInfos, setActiveRentingInfos] = React.useState([]);
+            const [activeRentedInfos, setActiveRentedInfos] = React.useState([]);
+
+            const [account, setAccount] = React.useState(["tradingideas.spt"]);
+
+
+            const onChange = (event) => {
+                setAccount(event.target.value);
+            };
+
+            const onBalance = (event) => {
+                setLoading(1); // 1 : loading
+                const sm_balance = "https://api2.splinterlands.com/players/balances?username="
+                fetch(sm_balance+account)
+                .then((response) => response.json())
+                .then((json) => {
+                    setLoading(2); // 2 : loading 완료
+                    setInfos(json);
+                });
+            };
+
+            // card renting info from other
+            const onActiveRenting = (event) => {
+                setLoading(1); // 1 : loading
+                const url = "https://api2.splinterlands.com/market/active_rentals?renter="
+                fetch(url+account)
+                .then((response) => response.json())
+                .then((json) => {
+                    setLoading(6); // 6 : loading 완료
+                    setActiveRentingInfos(json);
+                });
+            };
+
+            // card renting info from other
+            const onActiveRented = (event) => {
+                setLoading(1); // 1 : loading
+                const url = "https://api2.splinterlands.com/market/active_rentals?owner="
+                fetch(url+account)
+                .then((response) => response.json())
+                .then((json) => {
+                    setLoading(7); // 7 : loading 완료
+//                    setActiveRentedInfos(json);
+                    setActiveRentingInfos(json);
+                });
+            };
+
+            const onRental = (event) => {
+                setLoading(1); // 1 : loading
+                const url = "https://api2.splinterlands.com/market/rental_history?player="
+                fetch(url+account)
+                .then((response) => response.json())
+                .then((json) => {
+                    setLoading(5); // 5 : loading 완료
+                    setRentInfos(json);
+                });
+            };
+
+            const onTrading = (event) => {
+                setLoading(1); // 1 : loading
+                const url = "https://api2.splinterlands.com/market/history?player="
+                fetch(url+account)
+                .then((response) => response.json())
+                .then((json) => {
+                    setInfos(json);
+                    setLoading(3); // 3 : loading 완료
+                });
+            };
+
+            const onReward = (event) => {
+                setLoading(1); // 1 : loading
+                const url = "https://api.steemmonsters.io/players/history?from_block=-1&limit=250&types=card_award,claim_reward&username="
+                fetch(url+account)
+                .then((response) => response.json())
+                .then((json) => {
+                    setRewardInfos(json);
+                    setLoading(4); // 4 : loading 완료
+                });
+            };
+
+            // run once at the first time
+            React.useEffect(() => {
+                const  url = "https://api2.splinterlands.com/settings"
+                fetch(url)
+                .then((response) => response.json())
+                .then((json) => {
+                    setSmonInfos(json);
+                });
+
+                console.log('smon')
+
+                const tickers = 'KRW-STEEM,KRW-SBD,KRW-HIVE'
+                const url2 = UPBIT_API_URL+'/ticker?markets=' + tickers
+                fetch(url2)
+                .then((response) => response.json())
+                .then((json) => {
+                    console.log(url2, 'upbit', json[0].trade_price)
+                    setUpbitInfos(json);
+                });
+                console.log('upbit')
+
+                const url3 = "https://api2.splinterlands.com/cards/get_details"
+                fetch(url3)
+                .then((response) => response.json())
+                .then((json) => {
+                    setCardInfos(json);
+                });
+                console.log('card info')
+
+            }, []);
+//                                                         <td> <GetDetailRewardInfo data={info} kind={"pack"}/> </td>
+//<h4> DEC: {smonInfos.rpc_nodes.dec_price} SPS: {smonInfos.rpc_nodes.sps_price}</h4>
+//<h10> DEC: {smonInfos.dec_price} SPS: {smonInfos.sps_price} </h10>
+//                    <h1 style={{ color: 'black',textAlign: 'center' }}> Steem Monster Information </h1>
+//                                    <td> </td>  
+/*
+                                <tr>
+                                    <td> STEEM: {upbitInfos[0].trade_price} &nbsp;</td>   <td> DEC: {smonInfos.dec_price} &nbsp;</td> 
+                                </tr>
+                                <tr>
+                                    <td> SBD: {upbitInfos[1].trade_price} &nbsp;</td>   <td> SPS: {smonInfos.sps_price} &nbsp;</td> 
+                                </tr>
+                                <tr>
+                                    <td> HIVE: {upbitInfos[2].trade_price} &nbsp;</td>   <td> </td> 
+                                </tr>
+
+*/
+            return (
+                <div>
+                    <div>
+                        <table align="left">
+                            <tbody>
+                                <tr>
+                                    <td> STEEM </td> <td> \<GetPriceFromUpbit data={upbitInfos} coin='KRW-STEEM'/> </td>
+                                    <td> &nbsp;DEC</td> <td>  ${smonInfos.dec_price} &nbsp;</td> 
+                                </tr>                                    
+                                <tr>
+                                    <td> SBD</td> <td>  \<GetPriceFromUpbit data={upbitInfos} coin='KRW-SBD'/> </td>
+                                    <td> &nbsp;SPS</td> <td>  ${smonInfos.sps_price} &nbsp;</td> 
+                                </tr>
+                                <tr>
+                                    <td> HIVE</td> <td>  \<GetPriceFromUpbit data={upbitInfos} coin='KRW-HIVE'/> </td>
+                                    <td> </td> <td> </td> 
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h2 style={{textAlign:"center"}}> &nbsp;Steem Monster Information &nbsp;</h2>  
+
+                    <div align="center">
+                        <input
+                            position="center"
+                            onChange={onChange}
+                            value={account}
+                            type="text"
+                            height= "100px"
+                            placeholder="Enter account..."
+                            style={{height: 40, textAlign: 'center'}}
+                        />
+                        <hr />
+                        <h4> History  : &nbsp;  &nbsp;
+                            <button style={{height: 30, marginRight:10}} onClick={onTrading}> Trade</button> 
+                            <button style={{height: 30, marginRight:10}} onClick={onReward}> Reward</button>
+                            <button style={{height: 30, marginRight:50}} onClick={onRental}> Rental</button>
+
+                            Status &nbsp;  &nbsp;
+                            <button style={{height: 30, marginRight:10}} onClick={onBalance}> Balance</button> <h100></h100>
+                            <button style={{height: 30, marginRight:10}} onClick={onActiveRenting}> Active Renting</button> <h100></h100>
+                            <button style={{height: 30}} onClick={onActiveRented}> Active Rented</button> <h100></h100>
+                        </h4>
+                    </div>
+                    <hr />
+                    {
+                        loading < 2 ? (
+                            loading == 1? (
+                                <h1 style={{ color: 'black',textAlign: 'center' }}> Loading...</h1>
+                            )
+                            : ""  
+                        ) : ""
+                    }
+                    {
+                        loading == 2 ? (  // balance
+                            <table border="1" align="center">
+                                <thead>
+                                    <th> Type </th>
+                                    <th> Qty </th>
+                                </thead>
+                                <tbody>
+                                    {infos.map((info, index) => (
+                                        info.balance ? ( 
+                                            <tr key={index} align="center"> 
+                                                <td> &nbsp;{info.token} &nbsp;</td>  
+                                                <td> &nbsp;{info.balance>0?info.balance.toLocaleString():''} &nbsp;</td> 
+                                            </tr>
+                                        ) : ''
+                                    ))}
+                                </tbody>
+                            </table>
+
+                        ) : 
+                        (loading == 3 ? (  // trading info
+                            <table border="1" align="center">
+                                    <thead>
+                                        <th> DATE </th>
+                                        <th> TYPE </th>
+                                        <th> CARD </th>
+                                        <th> GOLD </th>
+                                        <th> PRICE($) </th>
+                                    </thead>
+                                    <tbody>
+                                        {infos.map((info, index) => (
+                                                <tr key={index} align="center" style={{color: info.purchaser==account?'red':'blue'}}> 
+                                                    <td> &nbsp; {new Date(info.completed_date).toLocaleString()} &nbsp; </td>
+                                                    <td> &nbsp;{info.purchaser==account? 'BUY ' : 'SELL'}  &nbsp;</td>
+                                                    <td> &nbsp;<GetCardName data={cardInfos} id={info.card_detail_id} /> &nbsp;</td>
+                                                    <td> {info.gold? 'G' : ''} </td>
+                                                    <td> &nbsp;{info.buy_price} &nbsp;</td>
+                                                </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                        ): 
+                        (loading == 5 ? (  // rental history
+                            <table border="1" align="center">
+                                    <thead>
+                                        <th> # </th>
+                                        <th> RENT DATE </th>
+                                        <th> OWNER </th>
+                                        <th> RENTER </th>
+                                        <th> CARD </th>
+                                        <th> XP </th>
+                                        <th> GOLD </th>
+                                        <th> PAID </th>
+                                        <th> BY </th>
+                                        <th> UNTIL </th>
+                                        <th> REMAIN </th>
+                                    </thead>
+                                    <tbody>
+                                        {rentInfos.map((info, index) => (
+                                                <tr key={index} align="center" style={{color: info.seller==account?'red':'blue'}}> 
+                                                    <td> &nbsp;{index+1} &nbsp; </td>
+                                                    <td> &nbsp; {new Date(info.rental_date).toLocaleString()} &nbsp;  </td>
+                                                    <td> &nbsp; {info.seller} &nbsp; </td>
+                                                    <td> &nbsp; {info.renter} &nbsp; </td>
+                                                    <td> &nbsp; <GetCardName data={cardInfos} id={info.card_detail_id} /> &nbsp;</td>
+                                                    <td> &nbsp; {info.xp} &nbsp;</td>
+                                                    <td> {info.gold? 'G' : ''} </td>
+                                                    <td> &nbsp; {info.buy_price} &nbsp;</td>
+                                                    <td> &nbsp;{info.payment_currency} &nbsp;</td>
+                                                    <td> {new Date(info.next_rental_payment).toLocaleString()} </td>
+                                                    <td> <GetRemain data={info} /> </td>
+                                                </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                        ):
+                        (loading == 6 ? ( //active renting info
+                            activeRentingInfos.length > 0 ? (
+                                <div>
+                                    <h2 align="center"> <GetRentTotal data={activeRentingInfos} type={"renter"} />  </h2>
+
+                                    <table border="1" align="center">
+                                        <thead>
+                                            <th> # </th>
+                                            <th> RENT DATE </th>
+                                            <th> OWNER </th>
+                                            <th> CARD </th>
+                                            <th> XP </th>
+                                            <th> GOLD </th>
+                                            <th> PAID </th>
+                                            <th> BY </th>
+                                            <th> UNTIL </th>
+                                            <th> &nbsp;REMAIN &nbsp;</th>
+                                            <th> CANCELLED </th>
+                                        </thead>
+                                        <tbody>
+                                            {activeRentingInfos.map((info, index) => (
+                                                    <tr key={index} align="center" style={{color: info.seller==account?'red':'blue'}}> 
+                                                        <td> &nbsp; {index+1}  &nbsp; </td>
+                                                        <td> &nbsp; {new Date(info.rental_date).toLocaleString()}  &nbsp; </td>
+                                                        <td> &nbsp; {info.seller}  &nbsp; </td>
+                                                        <td> &nbsp; <GetCardName data={cardInfos} id={info.card_detail_id} /> &nbsp; </td>
+                                                        <td> &nbsp; {info.xp} &nbsp; </td>
+                                                        <td> &nbsp; {info.gold? 'G' : ''} &nbsp; </td>
+                                                        <td> &nbsp; {info.buy_price} &nbsp; </td>
+                                                        <td> &nbsp; {info.payment_currency} &nbsp; </td>
+                                                        <td> &nbsp; {new Date(info.next_rental_payment).toLocaleString()} &nbsp; </td>
+                                                        <td> <GetRemain data={info} /> &nbsp; </td>
+                                                        <td> &nbsp; {info.cancel_player} &nbsp; </td>
+                                                    </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            ):
+                            <h1 style={{ color: 'black',textAlign: 'center' }}> No Rented Info </h1>
+                        ):
+                        (loading == 7 ? ( //active rented info
+                            activeRentingInfos.length > 0 ? (
+                                <div>
+                                    <h2 align="center"> <GetRentTotal data={activeRentingInfos} type={"rentee"} />  </h2>
+                                    <table border="1" align="center">
+                                        <thead>
+                                            <th> # </th>
+                                            <th> RENT DATE </th>
+                                            <th> RENTER </th>
+                                            <th> CARD </th>
+                                            <th> XP </th>
+                                            <th> GOLD </th>
+                                            <th> PAID </th>
+                                            <th> PAY </th>
+                                            <th> UNTIL </th>
+                                            <th> REMAIN </th>
+                                            <th> CANCELLED </th>
+                                        </thead>
+                                        <tbody>
+                                            {activeRentingInfos.map((info, index) => (
+                                                    <tr key={index} align="center" style={{color: info.seller==account?'red':'blue'}}> 
+                                                        <td> &nbsp; {index+1}  &nbsp; </td>
+                                                        <td> &nbsp; {new Date(info.rental_date).toLocaleString()}  &nbsp; </td>
+                                                        <td> &nbsp; {info.renter}  &nbsp; </td>
+                                                        <td> &nbsp; <GetCardName data={cardInfos} id={info.card_detail_id} /> &nbsp; </td>
+                                                        <td> &nbsp; {info.xp} &nbsp; </td>
+                                                        <td> &nbsp; {info.gold? 'G' : ''} &nbsp; </td>
+                                                        <td> &nbsp; {info.buy_price} &nbsp; </td>
+                                                        <td> &nbsp; {info.payment_currency} &nbsp; </td>
+                                                        <td> &nbsp; {new Date(info.next_rental_payment).toLocaleString()} &nbsp; </td>
+                                                        <td> <GetRemain data={info} /></td>
+                                                        <td> &nbsp; {info.cancel_player} &nbsp; </td>
+                                                    </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            ):
+                            <h1 style={{ color: 'black',textAlign: 'center' }}> No Renting Info </h1>
+                        ):
+                        (loading == 4 ? ( // reward
+                            rewardInfos.length > 0 ? (
+                                <table border="1" align="center" cellpadding="1">
+                                    <thead>
+                                        <th> Date </th>
+                                        <th> TYPE </th>
+                                        <th> DEC </th>
+                                        <th> CARD </th>
+                                        <th> PACK </th>
+                                    </thead>
+                                    <tbody>
+                                        {rewardInfos.map((info, index) => (
+                                                info.success ? 
+                                                    <tr  key={index} align="center"> 
+                                                        <td> &nbsp; {new Date(info.created_date).toLocaleString()} &nbsp; </td>
+                                                        <td> &nbsp; <GetRewardType data={info}/> &nbsp; </td>
+                                                        <td> &nbsp; <GetDetailRewardInfo data={info} kind={"dec"}/> &nbsp; </td>
+                                                        <td> &nbsp; <GetDetailRewardInfo data={info} kind={"reward_card"}/> &nbsp; </td>
+                                                        <GetDetailRewardInfoTr data={info} kind={"pack"}/>
+                                                    </tr>
+                                                :""
+                                        ))}
+                                    </tbody>
+                                </table>
+                            ):
+                            <h5 style={{ color: 'black',textAlign: 'center' }}> No reward </h5>
+                            ): ""
+                        )
+                        ))))
+                    }
+                </div>
+            );
+        }
+
+        ReactDOM.render(
+        <App />, root)
+    </script>   
+</html>
