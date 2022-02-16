@@ -358,7 +358,7 @@
                                         info.balance ? ( 
                                             <tr key={index} align="center"> 
                                                 <td> &nbsp;{info.token} &nbsp;</td>  
-                                                <td> &nbsp;{info.balance>0?info.balance.toLocaleString():''} &nbsp;</td> 
+                                                <td> &nbsp;{info.balance>1000?( Math.round(info.balance).toLocaleString()):info.balance} &nbsp;</td> 
                                             </tr>
                                         ) : ''
                                     ))}
