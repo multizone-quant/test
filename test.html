@@ -5,8 +5,6 @@
     </body>
 
     <!-- 
-        https://multizone-quant.github.io/react-ex/smon-info.html
-
     <script src="https://unpkg.com/react@17/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@17/umd/react-dom.development.js"></script>
     -->
@@ -28,6 +26,7 @@
                 ret
             );
         }
+
         function GetRentTotal({data, type}) {
             var total = 0
             for (var i=0; i < data.length; i++) {
@@ -158,11 +157,10 @@
 
         function App() {
             const UPBIT_API_URL = 'https://api.upbit.com/v1'
-
             const [loading, setLoading] = React.useState(-1);
             const [infos, setInfos] = React.useState([]);
             const [cardInfos, setCardInfos] = React.useState([]);
-            const [smonInfos, setSmonInfos] = React.useState([]);
+            const [smonInfos, setSmonInfos] = React.useState([]);                                                     
             const [upbitInfos, setUpbitInfos] = React.useState([]);
             const [rewardInfos, setRewardInfos] = React.useState([]);
             const [rentInfos, setRentInfos] = React.useState([]);
@@ -247,14 +245,12 @@
 
             // run once at the first time
             React.useEffect(() => {
-                const  url = "https://api2.splinterlands.com/settings"
+                var  url = "https://api2.splinterlands.com/settings"
                 fetch(url)
                 .then((response) => response.json())
                 .then((json) => {
                     setSmonInfos(json);
                 });
-
-                console.log('smon')
 
                 const tickers = 'KRW-STEEM,KRW-SBD,KRW-HIVE'
                 const url2 = UPBIT_API_URL+'/ticker?markets=' + tickers
@@ -265,33 +261,16 @@
                     setUpbitInfos(json);
                 });
                 console.log('upbit')
-
-                const url3 = "https://api2.splinterlands.com/cards/get_details"
-                fetch(url3)
+                    
+                url = "https://api2.splinterlands.com/cards/get_details"
+                fetch(url)
                 .then((response) => response.json())
                 .then((json) => {
                     setCardInfos(json);
                 });
-                console.log('card info')
-
             }, []);
 //                                                         <td> <GetDetailRewardInfo data={info} kind={"pack"}/> </td>
-//<h4> DEC: {smonInfos.rpc_nodes.dec_price} SPS: {smonInfos.rpc_nodes.sps_price}</h4>
-//<h10> DEC: {smonInfos.dec_price} SPS: {smonInfos.sps_price} </h10>
-//                    <h1 style={{ color: 'black',textAlign: 'center' }}> Steem Monster Information </h1>
-//                                    <td> </td>  
-/*
-                                <tr>
-                                    <td> STEEM: {upbitInfos[0].trade_price} &nbsp;</td>   <td> DEC: {smonInfos.dec_price} &nbsp;</td> 
-                                </tr>
-                                <tr>
-                                    <td> SBD: {upbitInfos[1].trade_price} &nbsp;</td>   <td> SPS: {smonInfos.sps_price} &nbsp;</td> 
-                                </tr>
-                                <tr>
-                                    <td> HIVE: {upbitInfos[2].trade_price} &nbsp;</td>   <td> </td> 
-                                </tr>
 
-*/
             return (
                 <div>
                     <div>
@@ -313,8 +292,7 @@
                         </table>
                     </div>
 
-                    <h2 style={{textAlign:"center"}}> &nbsp;Steem Monster Information &nbsp;</h2>  
-
+                    <h1 style={{ color: 'black',textAlign: 'center' }}> Steem Monster Information </h1>
                     <div align="center">
                         <input
                             position="center"
@@ -372,7 +350,6 @@
                                         <th> DATE </th>
                                         <th> TYPE </th>
                                         <th> CARD </th>
-                                        <th> GOLD </th>
                                         <th> PRICE($) </th>
                                     </thead>
                                     <tbody>
@@ -381,7 +358,6 @@
                                                     <td> &nbsp; {new Date(info.completed_date).toLocaleString()} &nbsp; </td>
                                                     <td> &nbsp;{info.purchaser==account? 'BUY ' : 'SELL'}  &nbsp;</td>
                                                     <td> &nbsp;<GetCardName data={cardInfos} id={info.card_detail_id} /> &nbsp;</td>
-                                                    <td> {info.gold? 'G' : ''} </td>
                                                     <td> &nbsp;{info.buy_price} &nbsp;</td>
                                                 </tr>
                                         ))}
@@ -389,6 +365,7 @@
                                 </table>
                         ): 
                         (loading == 5 ? (  // rental history
+                            activeRentingInfos.length > 0 ? (
                             <table border="1" align="center">
                                     <thead>
                                         <th> # </th>
@@ -399,7 +376,7 @@
                                         <th> XP </th>
                                         <th> GOLD </th>
                                         <th> PAID </th>
-                                        <th> BY </th>
+                                        <th> PAY </th>
                                         <th> UNTIL </th>
                                         <th> REMAIN </th>
                                     </thead>
@@ -407,7 +384,7 @@
                                         {rentInfos.map((info, index) => (
                                                 <tr key={index} align="center" style={{color: info.seller==account?'red':'blue'}}> 
                                                     <td> &nbsp;{index+1} &nbsp; </td>
-                                                    <td> &nbsp; {new Date(info.rental_date).toLocaleString()} &nbsp;  </td>
+                                                    <td> {new Date(info.rental_date).toLocaleString()}  </td>
                                                     <td> &nbsp; {info.seller} &nbsp; </td>
                                                     <td> &nbsp; {info.renter} &nbsp; </td>
                                                     <td> &nbsp; <GetCardName data={cardInfos} id={info.card_detail_id} /> &nbsp;</td>
@@ -421,6 +398,7 @@
                                         ))}
                                     </tbody>
                                 </table>
+                            ): <h1 style={{ color: 'black',textAlign: 'center' }}> No Rental History</h1>
                         ):
                         (loading == 6 ? ( //active renting info
                             activeRentingInfos.length > 0 ? (
@@ -436,14 +414,14 @@
                                             <th> XP </th>
                                             <th> GOLD </th>
                                             <th> PAID </th>
-                                            <th> BY </th>
+                                            <th> PAY </th>
                                             <th> UNTIL </th>
-                                            <th> &nbsp;REMAIN &nbsp;</th>
+                                            <th> REMAIN </th>
                                             <th> CANCELLED </th>
                                         </thead>
                                         <tbody>
                                             {activeRentingInfos.map((info, index) => (
-                                                    <tr key={index} align="center" style={{color: info.seller==account?'red':'blue'}}> 
+                                                    <tr key={index} align="center" > 
                                                         <td> &nbsp; {index+1}  &nbsp; </td>
                                                         <td> &nbsp; {new Date(info.rental_date).toLocaleString()}  &nbsp; </td>
                                                         <td> &nbsp; {info.seller}  &nbsp; </td>
@@ -461,7 +439,7 @@
                                     </table>
                                 </div>
                             ):
-                            <h1 style={{ color: 'black',textAlign: 'center' }}> No Rented Info </h1>
+                            <h1 style={{ color: 'black',textAlign: 'center' }}> No Renting Info </h1>
                         ):
                         (loading == 7 ? ( //active rented info
                             activeRentingInfos.length > 0 ? (
@@ -483,7 +461,7 @@
                                         </thead>
                                         <tbody>
                                             {activeRentingInfos.map((info, index) => (
-                                                    <tr key={index} align="center" style={{color: info.seller==account?'red':'blue'}}> 
+                                                    <tr key={index} align="center"> 
                                                         <td> &nbsp; {index+1}  &nbsp; </td>
                                                         <td> &nbsp; {new Date(info.rental_date).toLocaleString()}  &nbsp; </td>
                                                         <td> &nbsp; {info.renter}  &nbsp; </td>
@@ -528,7 +506,7 @@
                                     </tbody>
                                 </table>
                             ):
-                            <h5 style={{ color: 'black',textAlign: 'center' }}> No reward </h5>
+                            <h1 style={{ color: 'black',textAlign: 'center' }}> No Rented Info </h1>
                             ): ""
                         )
                         ))))
