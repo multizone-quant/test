@@ -358,7 +358,7 @@
                                                 <tr key={index} align="center" style={{color: info.purchaser==account?'red':'blue'}}> 
                                                     <td> &nbsp; {new Date(info.completed_date).toLocaleString()} &nbsp; </td>
                                                     <td> &nbsp;{info.purchaser==account? 'BUY ' : 'SELL'}  &nbsp;</td>
-                                                    <td> &nbsp; {info.card_detail_id} /> &nbsp;</td>
+                                                    <td> &nbsp; {info.card_detail_id} &nbsp;</td>
                                                     <td> &nbsp;<GetCardName data={cardInfos} id={info.card_detail_id} /> &nbsp;</td>
                                                     <td> &nbsp;{info.buy_price} &nbsp;</td>
                                                 </tr>
