@@ -352,6 +352,7 @@
                                         <th> ID </th>
                                         <th> CARD </th>
                                         <th> PRICE($) </th>
+                                        <th> UID </th>
                                     </thead>
                                     <tbody>
                                         {infos.map((info, index) => (
@@ -361,6 +362,8 @@
                                                     <td> &nbsp; {info.card_detail_id} &nbsp;</td>
                                                     <td> &nbsp;<GetCardName data={cardInfos} id={info.card_detail_id} /> &nbsp;</td>
                                                     <td> &nbsp;{info.buy_price} &nbsp;</td>
+                                                    <td> &nbsp;{info.card_id} &nbsp;</td>
+                                                    
                                                 </tr>
                                         ))}
                                     </tbody>
